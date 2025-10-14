@@ -1,12 +1,19 @@
 using Xunit;
 
-namespace GithubCI.WebApi.Tests;
-
-public class UnitTest1
+namespace GithubCI.WebApi.Tests
 {
-    [Fact]
-    public void PassingTest()
+    public class UnitTest1
     {
-        Assert.True(true);
+        [Fact]
+        public void PassingTest()
+        {
+            Assert.True(true);
+        }
+
+        [Fact]
+        public void FailingTest()
+        {
+            Assert.True(false); // هذا راح يفشل التست
+        }
     }
 }
