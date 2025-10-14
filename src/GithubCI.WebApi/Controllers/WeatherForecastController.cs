@@ -10,7 +10,7 @@ public class WeatherForecastController : ControllerBase
     };
 
     // الدالة الأصلية
-    [HttpGet("forecast", Name = "GetWeatherForecast")]
+    [HttpGet("forecast", Name = "GetWeatherForecastaabuabdo")]
     public IEnumerable<WeatherForecast> GetForecast()
     {
         return Enumerable.Range(1, 5).Select(index => new WeatherForecast
