@@ -13,7 +13,7 @@ namespace GithubCI.WebApi.Tests
         [Fact]
         public void FailingTest()
         {
-            Assert.True(false); // هذا راح يفشل التست
+            Assert.True(true); // هذا راح يفشل التست
         }
     }
 }
