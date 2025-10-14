@@ -30,3 +30,4 @@ C:\Users\SQ1User\Desktop\testaz400project\GithubCI\src\GithubCI.WebApi\obj\Debug
 C:\Users\SQ1User\Desktop\testaz400project\GithubCI\src\GithubCI.WebApi\obj\Debug\net8.0\GithubCI.WebApi.pdb
 C:\Users\SQ1User\Desktop\testaz400project\GithubCI\src\GithubCI.WebApi\obj\Debug\net8.0\GithubCI.WebApi.genruntimeconfig.cache
 C:\Users\SQ1User\Desktop\testaz400project\GithubCI\src\GithubCI.WebApi\obj\Debug\net8.0\ref\GithubCI.WebApi.dll
+C:\Users\SQ1User\Desktop\testaz400project\GithubCI\src\GithubCI.WebApi\obj\Debug\net8.0\GithubCI.WebApi.sourcelink.json
