@@ -45,3 +45,18 @@ jobs:
           file: ./src/GithubCI.WebApi/Dockerfile
           push: true
           tags: myregistryaabuabdo.azurecr.io/myapp/my-image-name:latest
+
+      # 8️⃣ Create Azure Container Instance
+      - name: Create Azure Container Instance
+        run: |
+          az container show --name myapp-container --resource-group az400 || \
+          az container create \
+            --resource-group az400 \
+            --name myapp-container \
+            --image myregistryaabuabdo.azurecr.io/myapp/my-image-name:latest \
+            --registry-login-server myregistryaabuabdo.azurecr.io \
+            --registry-username $(az acr credential show --name myregistryaabuabdo --query "username" -o tsv) \
+            --registry-password $(az acr credential show --name myregistryaabuabdo --query "passwords[0].value" -o tsv) \
+            --dns-name-label myapp-aci-$(date +%s) \
+            --ports 8080 \
+            --environment-variables ASPNETCORE_ENVIRONMENT=Production
