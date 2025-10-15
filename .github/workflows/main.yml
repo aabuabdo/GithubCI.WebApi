@@ -9,7 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       # 1️⃣ Checkout repository
       - uses: actions/checkout@v4
@@ -34,13 +33,23 @@ jobs:
       - name: Build Docker image
         run: docker build ./src/GithubCI.WebApi --file ./src/GithubCI.WebApi/Dockerfile --tag my-image-name:test
 
-      # 6️⃣ Login to Azure Container Registry
-      - name: Login to Azure Container Registry
-        run: |
-          az acr login --name myregistryaabuabdo
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging  # ← هذا هو Approval Gate
+    steps:
+      # 1️⃣ Login to Azure CLI
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 7️⃣ Build and Push Docker image to ACR
-      - name: Build and Push Docker image
+      # 2️⃣ Login to Azure Container Registry
+      - name: Login to Azure Container Registry
+        run: az acr login --name myregistryaabuabdo
+
+      # 3️⃣ Push Docker image to ACR
+      - name: Push Docker image
         uses: docker/build-push-action@v4
         with:
           context: ./src/GithubCI.WebApi
