@@ -18,7 +18,21 @@ jobs:
       - name: List project directory
         run: ls -al ./src/GithubCI.WebApi
 
-      # 3️⃣ Build Docker image
+      # 3️⃣ Build Docker image locally
       - name: Build Docker image
         run: docker build ./src/GithubCI.WebApi --file ./src/GithubCI.WebApi/Dockerfile --tag my-image-name:test
 
+      # 4️⃣ Build & push to Azure Container Registry
+      - name: Azure Container Registry Build
+        uses: Azure/acr-build@v1
+        with:
+          service_principal: ${{ secrets.AZURE_SP_ID }}
+          service_principal_password: ${{ secrets.AZURE_SP_PASSWORD }}
+          tenant: ${{ secrets.AZURE_TENANT_ID }}
+          registry: myregistryaabuabdo      # بدون .azurecr.io
+          repository: myapp         # اسم الريبو في الـ ACR
+          git_access_token: ${{ secrets.GITHUB_TOKEN }}
+          image: my-image-name
+          tag: latest
+          folder: ./src/GithubCI.WebApi
+          dockerfile: Dockerfile
