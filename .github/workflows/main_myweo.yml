@@ -3,7 +3,7 @@ name: Build, Analyze, and Deploy to Azure
 on:
   push:
     branches:
-      - main
+      - main123
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -120,3 +120,4 @@ jobs:
           app-name: "myweo"
           slot-name: "Production"
           package: .
+
