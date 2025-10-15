@@ -23,8 +23,8 @@ jobs:
       # 3️⃣ Create Azure Container Registry if not exists
       - name: Create ACR
         run: |
-          az acr show --name myregistryaabuabdo --resource-group MyResourceGroup || \
-          az acr create --name myregistryaabuabdo --resource-group MyResourceGroup --sku Basic --admin-enabled true
+          az acr show --name myregistryaabuabdo --resource-group az400 || \
+          az acr create --name myregistryaabuabdo --resource-group az400 --sku Basic --admin-enabled true
 
       # 4️⃣ List files in project directory
       - name: List project directory
