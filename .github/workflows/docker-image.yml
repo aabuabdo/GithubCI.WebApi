@@ -7,12 +7,17 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build ./src/GithubCI.WebApi --file Dockerfile --tag my-image-name:$(date +%s)
+      # 1️⃣ Checkout repository
+      - uses: actions/checkout@v4
+
+      # 2️⃣ List files in project directory
+      - name: List project directory
+        run: ls -al ./src/GithubCI.WebApi
+
+      # 3️⃣ Build Docker image
+      - name: Build the Docker image
+        run: docker build ./src/GithubCI.WebApi --file Dockerfile --tag my-image-name:$(date +%s)
