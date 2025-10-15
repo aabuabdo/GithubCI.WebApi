@@ -2,9 +2,9 @@ name: build in acr and deply to aci
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main123" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main1234" ]
 
 jobs:
   build:
