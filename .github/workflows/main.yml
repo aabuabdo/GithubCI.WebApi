@@ -48,6 +48,7 @@ jobs:
 
       # 8️⃣ Create Azure Container Instance
             # 8️⃣ Create Azure Container Instance
+           # 8️⃣ Create Azure Container Instance
       - name: Create Azure Container Instance
         run: |
           echo "Checking if container exists..."
@@ -69,5 +70,11 @@ jobs:
             --dns-name-label myapp-aci-$(date +%s) \
             --ports 8080 \
             --os-type Linux \
+            --cpu 1 \
+            --memory 1.5 \
             --environment-variables ASPNETCORE_ENVIRONMENT=Production
+
+          echo "✅ Container created successfully!"
+          echo "Fetching container FQDN..."
+          az container show --name myapp-container --resource-group az400 --query "ipAddress.fqdn" -o tsv
 
