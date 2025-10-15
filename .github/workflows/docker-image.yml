@@ -19,5 +19,6 @@ jobs:
         run: ls -al ./src/GithubCI.WebApi
 
       # 3️⃣ Build Docker image
-      - name: Build the Docker image
-        run: docker build ./src/GithubCI.WebApi --file Dockerfile --tag my-image-name:$(date +%s)
+      - name: Build Docker image
+        run: docker build ./src/GithubCI.WebApi --file ./src/GithubCI.WebApi/Dockerfile --tag my-image-name:test
+
