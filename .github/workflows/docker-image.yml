@@ -29,6 +29,7 @@ jobs:
           service_principal: ${{ secrets.AZURE_SP_ID }}
           service_principal_password: ${{ secrets.AZURE_SP_PASSWORD }}
           tenant: ${{ secrets.AZURE_TENANT_ID }}
+          tenant: ${{ secrets.AZURE_TENANT_ID }}
           registry: myregistryaabuabdo      # بدون .azurecr.io
           repository: myapp         # اسم الريبو في الـ ACR
           git_access_token: ${{ secrets.GITHUB_TOKEN }}
