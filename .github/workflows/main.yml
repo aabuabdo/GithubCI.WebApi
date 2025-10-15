@@ -1,4 +1,4 @@
-name: Docker CI/CD with Approval
+name: Docker Image CI
 
 on:
   push:
@@ -19,43 +19,29 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3️⃣ List repo structure (debug)
-      - name: Show repo files
-        run: ls -R
-
-      # 4️⃣ Create Azure Container Registry if not exists
+      # 3️⃣ Create Azure Container Registry if not exists
       - name: Create ACR
         run: |
           az acr show --name myregistryaabuabdo --resource-group az400 || \
           az acr create --name myregistryaabuabdo --resource-group az400 --sku Basic --admin-enabled true
 
-      # 5️⃣ Build Docker image
+      # 4️⃣ List files in project directory
+      - name: List project directory
+        run: ls -al ./src/GithubCI.WebApi
+
+      # 5️⃣ Build Docker image locally
       - name: Build Docker image
-        run: |
-          docker build ${{ github.workspace }}/src/GithubCI.WebApi \
-            --file ${{ github.workspace }}/src/GithubCI.WebApi/Dockerfile \
-            --tag my-image-name:test
+        run: docker build ./src/GithubCI.WebApi --file ./src/GithubCI.WebApi/Dockerfile --tag my-image-name:test
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment: staging  # ← Approval Gate
-    steps:
-      # 1️⃣ Login to Azure CLI
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      # 2️⃣ Login to Azure Container Registry
+      # 6️⃣ Login to Azure Container Registry
       - name: Login to Azure Container Registry
         run: az acr login --name myregistryaabuabdo
 
-      # 3️⃣ Push Docker image to ACR
-      - name: Push Docker image
+      # 7️⃣ Build and Push Docker image to ACR
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v4
         with:
-          context: ${{ github.workspace }}/src/GithubCI.WebApi
-          file: ${{ github.workspace }}/src/GithubCI.WebApi/Dockerfile
+          context: ./src/GithubCI.WebApi
+          file: ./src/GithubCI.WebApi/Dockerfile
           push: true
           tags: myregistryaabuabdo.azurecr.io/myapp/my-image-name:latest
