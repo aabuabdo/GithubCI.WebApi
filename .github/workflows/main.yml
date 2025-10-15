@@ -47,9 +47,18 @@ jobs:
           tags: myregistryaabuabdo.azurecr.io/myapp/my-image-name:latest
 
       # 8️⃣ Create Azure Container Instance
+            # 8️⃣ Create Azure Container Instance
       - name: Create Azure Container Instance
         run: |
-          az container show --name myapp-container --resource-group az400 || \
+          echo "Checking if container exists..."
+          if az container show --name myapp-container --resource-group az400 > /dev/null 2>&1; then
+            echo "Container already exists. Deleting old one..."
+            az container delete --name myapp-container --resource-group az400 --yes
+            echo "Creating new container..."
+          else
+            echo "Creating new container..."
+          fi
+
           az container create \
             --resource-group az400 \
             --name myapp-container \
@@ -59,4 +68,6 @@ jobs:
             --registry-password $(az acr credential show --name myregistryaabuabdo --query "passwords[0].value" -o tsv) \
             --dns-name-label myapp-aci-$(date +%s) \
             --ports 8080 \
+            --os-type Linux \
             --environment-variables ASPNETCORE_ENVIRONMENT=Production
+
