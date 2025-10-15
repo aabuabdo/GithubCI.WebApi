@@ -31,7 +31,7 @@ jobs:
           tenant: ${{ secrets.AZUREAPPSERVICE_TENANTID_D2D12B9FC4BC486988C959BF0D63C672 }}
           registry: myregistryaabuabdo      # بدون .azurecr.io
           repository: myapp         # اسم الريبو في الـ ACR
-          git_access_token: ${{ secrets.AHAD }}
+          git_access_token: ${{ secrets.GITHUB_PAT }}
           image: my-image-name
           tag: latest
           folder: ./src/GithubCI.WebApi
