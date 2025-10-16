@@ -20,8 +20,19 @@ jobs:
           $password = ConvertTo-SecureString "${{ secrets.SERVER_PASSWORD }}" -AsPlainText -Force
           $cred = New-Object System.Management.Automation.PSCredential ("${{ secrets.SERVER_USER }}", $password)
 
-          # نسخ الملفات وتشغيل سكربت على الـ VM
+          # تنفيذ العمليات على الـ VM
           Invoke-Command -ComputerName ${{ secrets.SERVER_HOST }} -Credential $cred -ScriptBlock {
-              # إنشاء مجلد على VM إذا لم يكن موجود
-              if (-not (Test-Path "C:\AppFolder")) {
-                  New-Item -ItemType Directory -Path "C:\AppFolder"
+              # 1️⃣ إنشاء مجلد إذا لم يكن موجود
+              $destination = "C:\AppFolder"
+              if (-not (Test-Path $destination)) {
+                  New-Item -ItemType Directory -Path $destination
+              }
+
+              # 2️⃣ نسخ كل الملفات من مجلد مؤقت على VM
+              $source = "C:\GitHubActions\*"
+              Copy-Item -Path $source -Destination $destination -Recurse -Force
+
+              # 3️⃣ مثال: تشغيل سكربت أو إعادة تشغيل خدمة
+              # Restart-Service MyService
+              Write-Host "Deployment complete!"
+          }
