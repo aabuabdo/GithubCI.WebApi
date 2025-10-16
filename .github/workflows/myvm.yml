@@ -1,41 +1,46 @@
-name: Deploy to IIS
+name: Deploy ASP.NET Core to IIS
 
 on:
   push:
     branches:
-      - main   # كل push على الفرع الرئيسي
+      - main   # عند كل push على الفرع الرئيسي
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ جلب الكود
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Setup .NET SDK
+      # 2️⃣ إعداد .NET SDK
+      - name: Setup .NET 8 SDK
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
 
+      # 3️⃣ Build & Publish المشروع
       - name: Build and Publish
         run: dotnet publish -c Release -o ./publish
 
+      # 4️⃣ نقل الملفات للسيرفر باستخدام SCP
       - name: Copy to Windows Server
         uses: appleboy/scp-action@v0.1.3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          host: ${{ secrets.SERVER_HOST }}       # IP السيرفر أو Hostname
+          username: ${{ secrets.SERVER_USER }}   # المستخدم على السيرفر
+          key: ${{ secrets.SERVER_SSH_KEY }}     # المفتاح الخاص (Private Key)
           source: "./publish/"
           target: "C:/inetpub/wwwroot/myDotNetApp"
 
+      # 5️⃣ إعادة تشغيل App Pool عبر PowerShell Remoting
       - name: Restart IIS App Pool
-        uses: microsoft/powershell@v2
-        with:
-          pwsh: true
-          inlineScript: |
-            Invoke-Command -ComputerName ${{ secrets.SERVER_HOST }} -Credential (New-Object System.Management.Automation.PSCredential("${{ secrets.SERVER_USER }}",(ConvertTo-SecureString ${{ secrets.SERVER_PASSWORD }} -AsPlainText -Force))) -ScriptBlock {
-              Import-Module WebAdministration
-              Restart-WebAppPool -Name "DefaultAppPool"
-            }
+        run: |
+          $pass = ConvertTo-SecureString "${{ secrets.SERVER_PASSWORD }}" -AsPlainText -Force
+          $cred = New-Object System.Management.Automation.PSCredential("${{ secrets.SERVER_USER }}", $pass)
+          Invoke-Command -ComputerName ${{ secrets.SERVER_HOST }} -Credential $cred -ScriptBlock {
+            Import-Module WebAdministration
+            Restart-WebAppPool -Name "DefaultAppPool"
+          }
+        shell: pwsh
