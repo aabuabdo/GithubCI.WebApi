@@ -10,9 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install PowerShell
-        uses: microsoft/pwsh@v2
-
       - name: Deploy via WinRM
         shell: pwsh
         run: |
