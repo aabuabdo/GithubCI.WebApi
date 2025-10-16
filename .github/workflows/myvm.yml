@@ -1,46 +1,24 @@
-name: Deploy ASP.NET Core to IIS
+name: Deploy to Windows VM
 
 on:
   push:
-    branches:
-      - main   # عند كل push على الفرع الرئيسي
+    branches: [ main ]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # 1️⃣ جلب الكود
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      # 2️⃣ إعداد .NET SDK
-      - name: Setup .NET 8 SDK
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
+      - name: Install PowerShell
+        uses: microsoft/pwsh@v2
 
-      # 3️⃣ Build & Publish المشروع
-      - name: Build and Publish
-        run: dotnet publish -c Release -o ./publish
-
-      # 4️⃣ نقل الملفات للسيرفر باستخدام SCP
-      - name: Copy to Windows Server
-        uses: appleboy/scp-action@v0.1.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}       # IP السيرفر أو Hostname
-          username: ${{ secrets.SERVER_USER }}   # المستخدم على السيرفر
-          key: ${{ secrets.SERVER_SSH_KEY }}     # المفتاح الخاص (Private Key)
-          source: "./publish/"
-          target: "C:/inetpub/wwwroot/myDotNetApp"
-
-      # 5️⃣ إعادة تشغيل App Pool عبر PowerShell Remoting
-      - name: Restart IIS App Pool
-        run: |
-          $pass = ConvertTo-SecureString "${{ secrets.SERVER_PASSWORD }}" -AsPlainText -Force
-          $cred = New-Object System.Management.Automation.PSCredential("${{ secrets.SERVER_USER }}", $pass)
-          Invoke-Command -ComputerName ${{ secrets.SERVER_HOST }} -Credential $cred -ScriptBlock {
-            Import-Module WebAdministration
-            Restart-WebAppPool -Name "DefaultAppPool"
-          }
+      - name: Deploy via WinRM
         shell: pwsh
+        run: |
+          $password = ConvertTo-SecureString "${{ secrets.SERVER_PASSWORD }}" -AsPlainText -Force
+          $cred = New-Object System.Management.Automation.PSCredential ("${{ secrets.SERVER_USER }}", $password)
+          Invoke-Command -ComputerName ${{ secrets.SERVER_HOST }} -Credential $cred -ScriptBlock {
+              Copy-Item -Path "C:\GitHubActions\*" -Destination "C:\AppFolder" -Recurse -Force
+              Restart-Service MyService
+          }
