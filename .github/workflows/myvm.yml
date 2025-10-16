@@ -6,16 +6,22 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest   # مهم: runner Windows
     steps:
-      - uses: actions/checkout@v4
+      # 1️⃣ سحب ملفات المستودع
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      # 2️⃣ نشر الملفات على Windows VM باستخدام PowerShell Remoting
       - name: Deploy via WinRM
         shell: pwsh
         run: |
+          # تحويل كلمة المرور إلى SecureString
           $password = ConvertTo-SecureString "${{ secrets.SERVER_PASSWORD }}" -AsPlainText -Force
           $cred = New-Object System.Management.Automation.PSCredential ("${{ secrets.SERVER_USER }}", $password)
+
+          # نسخ الملفات وتشغيل سكربت على الـ VM
           Invoke-Command -ComputerName ${{ secrets.SERVER_HOST }} -Credential $cred -ScriptBlock {
-              Copy-Item -Path "C:\GitHubActions\*" -Destination "C:\AppFolder" -Recurse -Force
-              Restart-Service MyService
-          }
+              # إنشاء مجلد على VM إذا لم يكن موجود
+              if (-not (Test-Path "C:\AppFolder")) {
+                  New-Item -ItemType Directory -Path "C:\AppFolder"
