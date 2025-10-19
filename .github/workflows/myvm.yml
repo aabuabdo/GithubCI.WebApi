@@ -2,8 +2,8 @@ name: Build and Deploy .NET App to IIS
 
 on:
   push:
-    branches: [ main ]  # تشغيل عند أي دفع على الفرع الرئيسي
-  workflow_dispatch:    # يسمح بالتشغيل اليدوي من GitHub
+    branches: [ main ]   # تشغيل عند أي دفع على الفرع الرئيسي
+  workflow_dispatch:     # يسمح بالتشغيل اليدوي من GitHub
 
 jobs:
   build-and-deploy:
@@ -38,9 +38,8 @@ jobs:
 
       # 7️⃣ Deploy to IIS
       - name: Deploy to IIS
-        shell: pwsh
+        shell: powershell
         run: |
-          # استدعاء WebAdministration Module
           Import-Module WebAdministration
 
           $siteName = "MyApp"
