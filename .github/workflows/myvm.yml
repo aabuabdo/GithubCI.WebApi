@@ -2,72 +2,111 @@ name: Build and Deploy .NET App to IIS
 
 on:
   push:
-    branches: [ main ]   # تشغيل عند أي دفع على الفرع الرئيسي
-  workflow_dispatch:     # يسمح بالتشغيل اليدوي من GitHub
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted  # يستخدم الـ self-hosted runner الخاص بك
+    runs-on: self-hosted
     steps:
 
-      # 1️⃣ Checkout الكود من GitHub
+      # 1. Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ تثبيت .NET SDK
+      # 2. Setup .NET
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      # 3️⃣ Restore dependencies
+      # 3. Restore
       - name: Restore dependencies
         run: dotnet restore
 
-      # 4️⃣ Build project
+      # 4. Build
       - name: Build project
         run: dotnet build --configuration Release --no-restore
 
-      # 5️⃣ Run unit tests
+      # 5. Test
       - name: Run tests
         run: dotnet test --no-build --verbosity normal
 
-      # 6️⃣ Publish application
+      # 6. Publish
       - name: Publish application
         run: dotnet publish -c Release -o ./publish
 
-      # 7️⃣ Deploy to IIS
+      # 7. Deploy to IIS - CLEAN 100%
       - name: Deploy to IIS
         shell: powershell
         run: |
           Import-Module WebAdministration
-
+          
           $siteName = "MyApp"
           $physicalPath = "C:\inetpub\wwwroot\MyApp"
           $appPoolName = "MyAppPool"
-
-          # إنشاء المجلد إذا لم يكن موجود
+          
+          Write-Host "Starting deployment for $siteName" -ForegroundColor Green
+          
+          # Create folder if not exists
           if (-not (Test-Path $physicalPath)) {
-              New-Item -Path $physicalPath -ItemType Directory
+              New-Item -Path $physicalPath -ItemType Directory -Force
           }
-
-          # إنشاء App Pool إذا لم يكن موجود
+          
+          # Create App Pool if not exists
           if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
               New-Item IIS:\AppPools\$appPoolName
           }
-
-          # إنشاء الموقع في IIS إذا لم يكن موجود
-          if (-not (Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName })) {
+          
+          # Create Site if not exists
+          $siteExists = Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName }
+          if (-not $siteExists) {
               New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
-              # ربط الموقع بـ App Pool المخصص
               Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
           }
-
-          # حذف أي ملفات قديمة
-          Remove-Item -Path "$physicalPath\*" -Recurse -Force
-
-          # نسخ الملفات الجديدة
-          Copy-Item -Path .\publish\* -Destination $physicalPath -Recurse -Force
-
-          # إعادة تشغيل App Pool بعد النشر
-          Restart-WebAppPool $appPoolName
+          
+          # HARSH STOP - Kill ALL processes
+          Write-Host "Killing ALL locked processes..." -ForegroundColor Red
+          
+          # 1. Stop App Pool (force)
+          try { Stop-WebAppPool $appPoolName -ErrorAction SilentlyContinue } catch {}
+          
+          # 2. Stop Website (force)
+          try { Stop-Website $siteName -ErrorAction SilentlyContinue } catch {}
+          
+          # 3. KILL w3wp.exe processes for this App Pool
+          $w3wpProcesses = Get-WmiObject Win32_Process | Where-Object { 
+              $_.Name -eq "w3wp.exe" -and 
+              $_.CommandLine -like "*$appPoolName*"
+          }
+          foreach ($proc in $w3wpProcesses) {
+              Stop-Process -Id $proc.ProcessId -Force
+              Write-Host "Killed w3wp.exe PID: $($proc.ProcessId)" -ForegroundColor Red
+          }
+          
+          # 4. IISRESET (nuclear option)
+          iisreset /stop /timeout:10
+          Start-Sleep -Seconds 5
+          
+          Write-Host "Waiting 10 seconds for file release..." -ForegroundColor Yellow
+          Start-Sleep -Seconds 10
+          
+          # FAST COPY - No waiting!
+          Write-Host "Copying files..." -ForegroundColor Cyan
+          robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np /R:1 /W:1
+          $exitCode = $LASTEXITCODE
+          Write-Host "Robocopy exit code: $exitCode" -ForegroundColor Yellow
+          
+          if ($exitCode -gt 7) {
+              Write-Host "Robocopy FAILED: $exitCode" -ForegroundColor Red
+              exit 1
+          } else {
+              Write-Host "Files copied successfully!" -ForegroundColor Green
+          }
+          
+          # Start services
+          iisreset /start
+          Start-WebAppPool $appPoolName
+          Start-Website $siteName
+          
+          Write-Host "Deployment COMPLETED! http://localhost:8080" -ForegroundColor Green
