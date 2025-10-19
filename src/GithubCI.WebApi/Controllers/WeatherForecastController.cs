@@ -23,7 +23,7 @@ public class WeatherForecastController : ControllerBase
     }
 
     // الدالة الجديدة
-    [HttpGet("forecastnew", Name = "GetWeatherForecast")]
+    [HttpGet("forecastnewaa", Name = "GetWeatherForecast")]
     public IEnumerable<WeatherForecast> GetForecast1234()
     {
         return Enumerable.Range(1, 5).Select(index => new WeatherForecast
