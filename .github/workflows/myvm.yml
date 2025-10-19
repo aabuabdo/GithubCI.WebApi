@@ -62,14 +62,14 @@ jobs:
               Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
           }
 
-          # إيقاف App Pool قبل حذف الملفات
+          # إيقاف App Pool والموقع قبل النسخ
           Stop-WebAppPool $appPoolName
+          Stop-Website $siteName
+          Start-Sleep -Seconds 3
 
-          # حذف الملفات القديمة
-          Remove-Item -Path "$physicalPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+          # نسخ الملفات باستخدام Robocopy لتجنب مشاكل الملفات المقفولة
+          robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np
 
-          # نسخ الملفات الجديدة
-          Copy-Item -Path .\publish\* -Destination $physicalPath -Recurse -Force
-
-          # إعادة تشغيل App Pool بعد النشر
+          # إعادة تشغيل App Pool والموقع بعد النشر
           Start-WebAppPool $appPoolName
+          Start-Website $siteName
