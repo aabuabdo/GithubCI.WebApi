@@ -44,22 +44,30 @@ jobs:
 
           $siteName = "MyApp"
           $physicalPath = "C:\inetpub\wwwroot\MyApp"
+          $appPoolName = "MyAppPool"
 
           # إنشاء المجلد إذا لم يكن موجود
           if (-not (Test-Path $physicalPath)) {
               New-Item -Path $physicalPath -ItemType Directory
           }
 
+          # إنشاء App Pool إذا لم يكن موجود
+          if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
+              New-Item IIS:\AppPools\$appPoolName
+          }
+
           # إنشاء الموقع في IIS إذا لم يكن موجود
           if (-not (Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName })) {
               New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
+              # ربط الموقع بـ App Pool المخصص
+              Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
           }
 
           # حذف أي ملفات قديمة
           Remove-Item -Path "$physicalPath\*" -Recurse -Force
 
-          # نسخ الملفات الجديدة من مجلد publish
+          # نسخ الملفات الجديدة
           Copy-Item -Path .\publish\* -Destination $physicalPath -Recurse -Force
 
-          # إعادة تشغيل الموقع (اختياري لتحديث الملفات)
-          Restart-WebAppPool $siteName
+          # إعادة تشغيل App Pool بعد النشر
+          Restart-WebAppPool $appPoolName
