@@ -10,7 +10,7 @@ jobs:
     runs-on: self-hosted
     steps:
 
-      # 1️⃣ Checkout الكود
+      # 1️⃣ Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -36,7 +36,7 @@ jobs:
       - name: Publish application
         run: dotnet publish -c Release -o ./publish
 
-      # 7️⃣ Deploy to IIS - المُصحح 100%
+      # 7️⃣ Deploy to IIS - ✅ مُصحح لـ Robocopy
       - name: Deploy to IIS
         shell: powershell
         run: |
@@ -68,10 +68,9 @@ jobs:
               Write-Host "Created site: $siteName" -ForegroundColor Yellow
           }
           
-          # Safe Stop with State Check
+          # Safe Stop
           Write-Host "Stopping services..." -ForegroundColor Cyan
           
-          # App Pool
           try {
               $appPoolState = Get-WebAppPoolState -Name $appPoolName
               if ($appPoolState.Value -eq "Started") {
@@ -84,7 +83,6 @@ jobs:
               Write-Host "App Pool not found or stopped: $appPoolName" -ForegroundColor Gray
           }
           
-          # Website
           try {
               $siteState = Get-WebsiteState -Name $siteName
               if ($siteState.Value -eq "Started") {
@@ -99,14 +97,18 @@ jobs:
           
           Start-Sleep -Seconds 3
           
-          # Copy files with Robocopy
+          # 🔧 Copy files - الإصلاح الرئيسي!
           Write-Host "Copying files..." -ForegroundColor Cyan
-          $robocopyResult = robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np
-          if ($LASTEXITCODE -le 3) {
-              Write-Host "Files copied successfully" -ForegroundColor Green
-          } else {
-              Write-Host "Robocopy failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+          robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np
+          $exitCode = $LASTEXITCODE
+          Write-Host "Robocopy exit code: $exitCode" -ForegroundColor Yellow
+          
+          # ✅ Robocopy codes: 0=New, 1=Extra, 2=Mismatch, 3=All OK
+          if ($exitCode -gt 7) {
+              Write-Host "❌ Robocopy FAILED with exit code: $exitCode" -ForegroundColor Red
               exit 1
+          } else {
+              Write-Host "✅ Files copied successfully (code: $exitCode)" -ForegroundColor Green
           }
           
           # Safe Start
@@ -118,4 +120,5 @@ jobs:
           Start-Website $siteName
           Write-Host "Started site: $siteName" -ForegroundColor Green
           
-          Write-Host "Deployment completed! Site available at: http://localhost:8080" -ForegroundColor Green
+          Write-Host "🎉 Deployment completed! Site: http://localhost:8080" -ForegroundColor Green
+        continue-on-error: false
