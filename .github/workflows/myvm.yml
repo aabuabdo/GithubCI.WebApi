@@ -2,12 +2,12 @@ name: Build and Deploy .NET App to IIS
 
 on:
   push:
-    branches: [ main ]   # تشغيل عند أي دفع على الفرع الرئيسي
-  workflow_dispatch:     # يسمح بالتشغيل اليدوي من GitHub
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted  # يستخدم الـ self-hosted runner الخاص بك
+    runs-on: self-hosted
     steps:
 
       # 1️⃣ Checkout الكود من GitHub
@@ -56,18 +56,20 @@ jobs:
               New-Item IIS:\AppPools\$appPoolName
           }
 
-          # إنشاء الموقع في IIS إذا لم يكن موجود
+          # إنشاء الموقع إذا لم يكن موجود
           if (-not (Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName })) {
               New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
-              # ربط الموقع بـ App Pool المخصص
               Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
           }
 
-          # حذف أي ملفات قديمة
-          Remove-Item -Path "$physicalPath\*" -Recurse -Force
+          # إيقاف App Pool قبل حذف الملفات
+          Stop-WebAppPool $appPoolName
+
+          # حذف الملفات القديمة
+          Remove-Item -Path "$physicalPath\*" -Recurse -Force -ErrorAction SilentlyContinue
 
           # نسخ الملفات الجديدة
           Copy-Item -Path .\publish\* -Destination $physicalPath -Recurse -Force
 
           # إعادة تشغيل App Pool بعد النشر
-          Restart-WebAppPool $appPoolName
+          Start-WebAppPool $appPoolName
