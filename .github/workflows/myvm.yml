@@ -36,7 +36,7 @@ jobs:
       - name: Publish application
         run: dotnet publish -c Release -o ./publish
 
-      # 7️⃣ Deploy to IIS - ✅ مُصحح لـ Robocopy
+      # 7️⃣ Deploy to IIS - 🔧 قتل العمليات المقفولة!
       - name: Deploy to IIS
         shell: powershell
         run: |
@@ -51,13 +51,11 @@ jobs:
           # Create folder if not exists
           if (-not (Test-Path $physicalPath)) {
               New-Item -Path $physicalPath -ItemType Directory -Force
-              Write-Host "Created folder: $physicalPath" -ForegroundColor Yellow
           }
           
           # Create App Pool if not exists
           if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
               New-Item IIS:\AppPools\$appPoolName
-              Write-Host "Created App Pool: $appPoolName" -ForegroundColor Yellow
           }
           
           # Create Site if not exists
@@ -65,60 +63,50 @@ jobs:
           if (-not $siteExists) {
               New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
               Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
-              Write-Host "Created site: $siteName" -ForegroundColor Yellow
           }
           
-          # Safe Stop
-          Write-Host "Stopping services..." -ForegroundColor Cyan
+          # 🔥 HARSH STOP - قتل جميع العمليات!
+          Write-Host "🔥 Killing ALL locked processes..." -ForegroundColor Red
           
-          try {
-              $appPoolState = Get-WebAppPoolState -Name $appPoolName
-              if ($appPoolState.Value -eq "Started") {
-                  Stop-WebAppPool $appPoolName
-                  Write-Host "Stopped App Pool: $appPoolName" -ForegroundColor Green
-              } else {
-                  Write-Host "App Pool already stopped: $appPoolName" -ForegroundColor Gray
-              }
-          } catch {
-              Write-Host "App Pool not found or stopped: $appPoolName" -ForegroundColor Gray
+          # 1. Stop App Pool (force)
+          try { Stop-WebAppPool $appPoolName -ErrorAction SilentlyContinue } catch {}
+          
+          # 2. Stop Website (force)
+          try { Stop-Website $siteName -ErrorAction SilentlyContinue } catch {}
+          
+          # 3. KILL w3wp.exe processes for this App Pool
+          $w3wpProcesses = Get-WmiObject Win32_Process | Where-Object { 
+              $_.Name -eq "w3wp.exe" -and 
+              $_.CommandLine -like "*$appPoolName*"
+          }
+          foreach ($proc in $w3wpProcesses) {
+              Stop-Process -Id $proc.ProcessId -Force
+              Write-Host "💀 Killed w3wp.exe PID: $($proc.ProcessId)" -ForegroundColor Red
           }
           
-          try {
-              $siteState = Get-WebsiteState -Name $siteName
-              if ($siteState.Value -eq "Started") {
-                  Stop-Website $siteName
-                  Write-Host "Stopped site: $siteName" -ForegroundColor Green
-              } else {
-                  Write-Host "Site already stopped: $siteName" -ForegroundColor Gray
-              }
-          } catch {
-              Write-Host "Site not found or stopped: $siteName" -ForegroundColor Gray
-          }
+          # 4. IISRESET (nuclear option)
+          iisreset /stop /timeout:10
+          Start-Sleep -Seconds 5
           
-          Start-Sleep -Seconds 3
+          Write-Host "⏳ Waiting 10 seconds for file release..." -ForegroundColor Yellow
+          Start-Sleep -Seconds 10
           
-          # 🔧 Copy files - الإصلاح الرئيسي!
-          Write-Host "Copying files..." -ForegroundColor Cyan
-          robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np
+          # ⚡ FAST COPY - بدون انتظار!
+          Write-Host "⚡ FAST Copying files..." -ForegroundColor Cyan
+          robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np /R:1 /W:1
           $exitCode = $LASTEXITCODE
           Write-Host "Robocopy exit code: $exitCode" -ForegroundColor Yellow
           
-          # ✅ Robocopy codes: 0=New, 1=Extra, 2=Mismatch, 3=All OK
           if ($exitCode -gt 7) {
-              Write-Host "❌ Robocopy FAILED with exit code: $exitCode" -ForegroundColor Red
+              Write-Host "❌ Robocopy FAILED: $exitCode" -ForegroundColor Red
               exit 1
           } else {
-              Write-Host "✅ Files copied successfully (code: $exitCode)" -ForegroundColor Green
+              Write-Host "✅ Files copied in 30 seconds!" -ForegroundColor Green
           }
           
-          # Safe Start
-          Write-Host "Starting services..." -ForegroundColor Cyan
-          
+          # Start services
+          iisreset /start
           Start-WebAppPool $appPoolName
-          Write-Host "Started App Pool: $appPoolName" -ForegroundColor Green
-          
           Start-Website $siteName
-          Write-Host "Started site: $siteName" -ForegroundColor Green
           
-          Write-Host "🎉 Deployment completed! Site: http://localhost:8080" -ForegroundColor Green
-        continue-on-error: false
+          Write-Host "🎉 Deployment COMPLETED! http://localhost:8080" -ForegroundColor Green
