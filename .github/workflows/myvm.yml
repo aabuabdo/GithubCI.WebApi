@@ -36,7 +36,7 @@ jobs:
       - name: Publish application
         run: dotnet publish -c Release -o ./publish
 
-      # 7️⃣ Deploy to IIS
+      # 7️⃣ Deploy to IIS (مُصحح ✅)
       - name: Deploy to IIS
         shell: powershell
         run: |
@@ -46,30 +46,67 @@ jobs:
           $physicalPath = "C:\inetpub\wwwroot\MyApp"
           $appPoolName = "MyAppPool"
 
+          Write-Host "🚀 بدء النشر لـ $siteName" -ForegroundColor Green
+
           # إنشاء المجلد إذا لم يكن موجود
           if (-not (Test-Path $physicalPath)) {
-              New-Item -Path $physicalPath -ItemType Directory
+              New-Item -Path $physicalPath -ItemType Directory -Force
+              Write-Host "📁 تم إنشاء المجلد: $physicalPath" -ForegroundColor Yellow
           }
 
           # إنشاء App Pool إذا لم يكن موجود
           if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
               New-Item IIS:\AppPools\$appPoolName
+              Write-Host "🐳 تم إنشاء App Pool: $appPoolName" -ForegroundColor Yellow
           }
 
           # إنشاء الموقع إذا لم يكن موجود
           if (-not (Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName })) {
               New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
               Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
+              Write-Host "🌐 تم إنشاء الموقع: $siteName" -ForegroundColor Yellow
           }
 
-          # إيقاف App Pool والموقع قبل النسخ
-          Stop-WebAppPool $appPoolName
-          Stop-Website $siteName
+          # 🔧 إيقاف آمن مع فحص الحالة
+          Write-Host "⏹️ إيقاف الخدمات..." -ForegroundColor Cyan
+          
+          # فحص وإيقاف App Pool
+          $appPool = Get-WebAppPoolState -Name $appPoolName
+          if ($appPool.Value -eq "Started") {
+              Stop-WebAppPool $appPoolName
+              Write-Host "✅ تم إيقاف App Pool: $appPoolName" -ForegroundColor Green
+          } else {
+              Write-Host "ℹ️ App Pool مُطفأ بالفعل: $appPoolName" -ForegroundColor Gray
+          }
+
+          # فحص وإيقاف الموقع
+          $siteState = Get-WebsiteState -Name $siteName
+          if ($siteState.Value -eq "Started") {
+              Stop-Website $siteName
+              Write-Host "✅ تم إيقاف الموقع: $siteName" -ForegroundColor Green
+          } else {
+              Write-Host "ℹ️ الموقع مُطفأ بالفعل: $siteName" -ForegroundColor Gray
+          }
+
           Start-Sleep -Seconds 3
 
-          # نسخ الملفات باستخدام Robocopy لتجنب مشاكل الملفات المقفولة
-          robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np
+          # 📁 نسخ الملفات باستخدام Robocopy
+          Write-Host "📤 نسخ الملفات..." -ForegroundColor Cyan
+          $robocopyResult = robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np
+          if ($LASTEXITCODE -le 3) {
+              Write-Host "✅ تم نسخ الملفات بنجاح" -ForegroundColor Green
+          } else {
+              Write-Host "❌ خطأ في نسخ الملفات: $LASTEXITCODE" -ForegroundColor Red
+              exit 1
+          }
 
-          # إعادة تشغيل App Pool والموقع بعد النشر
+          # ▶️ إعادة تشغيل آمن
+          Write-Host "▶️ إعادة تشغيل الخدمات..." -ForegroundColor Cyan
+          
           Start-WebAppPool $appPoolName
+          Write-Host "✅ تم تشغيل App Pool: $appPoolName" -ForegroundColor Green
+          
           Start-Website $siteName
+          Write-Host "✅ تم تشغيل الموقع: $siteName" -ForegroundColor Green
+
+          Write-Host "🎉 اكتمل النشر بنجاح! الموقع متاح على: http://localhost:8080" -ForegroundColor Green
