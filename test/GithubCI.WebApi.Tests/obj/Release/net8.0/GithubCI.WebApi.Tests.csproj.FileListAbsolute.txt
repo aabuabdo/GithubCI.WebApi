@@ -96,3 +96,4 @@ C:\Users\SQ1User\Desktop\testaz400project\GithubCI\test\GithubCI.WebApi.Tests\ob
 C:\Users\SQ1User\Desktop\testaz400project\GithubCI\test\GithubCI.WebApi.Tests\obj\Release\net8.0\GithubCI.WebApi.Tests.pdb
 C:\Users\SQ1User\Desktop\testaz400project\GithubCI\test\GithubCI.WebApi.Tests\obj\Release\net8.0\GithubCI.WebApi.Tests.genruntimeconfig.cache
 C:\Users\SQ1User\Desktop\testaz400project\GithubCI\test\GithubCI.WebApi.Tests\obj\Release\net8.0\ref\GithubCI.WebApi.Tests.dll
+C:\Users\SQ1User\Desktop\testaz400project\GithubCI\test\GithubCI.WebApi.Tests\obj\Release\net8.0\GithubCI.WebApi.Tests.sourcelink.json

@@ -1,0 +1,9 @@
+C:\Publish\MyApp\GithubCI.WebApi.exe
+C:\Publish\MyApp\GithubCI.WebApi.dll
+C:\Publish\MyApp\GithubCI.WebApi.deps.json
+C:\Publish\MyApp\GithubCI.WebApi.runtimeconfig.json
+C:\Publish\MyApp\GithubCI.WebApi.pdb
+C:\Publish\MyApp\Microsoft.OpenApi.dll
+C:\Publish\MyApp\Swashbuckle.AspNetCore.Swagger.dll
+C:\Publish\MyApp\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Publish\MyApp\Swashbuckle.AspNetCore.SwaggerUI.dll
