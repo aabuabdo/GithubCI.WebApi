@@ -1,0 +1,73 @@
+name: Build and Deploy .NET App to IIS
+
+on:
+  push:
+    branches: [ main ]   # تشغيل عند أي دفع على الفرع الرئيسي
+  workflow_dispatch:     # يسمح بالتشغيل اليدوي من GitHub
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted  # يستخدم الـ self-hosted runner الخاص بك
+    steps:
+
+      # 1️⃣ Checkout الكود من GitHub
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2️⃣ تثبيت .NET SDK
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # 3️⃣ Restore dependencies
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # 4️⃣ Build project
+      - name: Build project
+        run: dotnet build --configuration Release --no-restore
+
+      # 5️⃣ Run unit tests
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal
+
+      # 6️⃣ Publish application
+      - name: Publish application
+        run: dotnet publish -c Release -o ./publish
+
+      # 7️⃣ Deploy to IIS
+      - name: Deploy to IIS
+        shell: powershell
+        run: |
+          Import-Module WebAdministration
+
+          $siteName = "MyApp"
+          $physicalPath = "C:\inetpub\wwwroot\MyApp"
+          $appPoolName = "MyAppPool"
+
+          # إنشاء المجلد إذا لم يكن موجود
+          if (-not (Test-Path $physicalPath)) {
+              New-Item -Path $physicalPath -ItemType Directory
+          }
+
+          # إنشاء App Pool إذا لم يكن موجود
+          if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
+              New-Item IIS:\AppPools\$appPoolName
+          }
+
+          # إنشاء الموقع في IIS إذا لم يكن موجود
+          if (-not (Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName })) {
+              New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
+              # ربط الموقع بـ App Pool المخصص
+              Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
+          }
+
+          # حذف أي ملفات قديمة
+          Remove-Item -Path "$physicalPath\*" -Recurse -Force
+
+          # نسخ الملفات الجديدة
+          Copy-Item -Path .\publish\* -Destination $physicalPath -Recurse -Force
+
+          # إعادة تشغيل App Pool بعد النشر
+          Restart-WebAppPool $appPoolName

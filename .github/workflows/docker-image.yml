@@ -1,0 +1,40 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main123" ]
+  pull_request:
+    branches: [ "main123" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repository
+      - uses: actions/checkout@v4
+
+      # 2️⃣ List files in project directory
+      - name: List project directory
+        run: ls -al ./src/GithubCI.WebApi
+
+      # 3️⃣ Build Docker image locally
+      - name: Build Docker image
+        run: docker build ./src/GithubCI.WebApi --file ./src/GithubCI.WebApi/Dockerfile --tag my-image-name:test
+
+      # 4️⃣ Login to Azure Container Registry
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: myregistryaabuabdo.azurecr.io
+          username: ${{ secrets.AZURE_SP_ID }}
+          password: ${{ secrets.AZURE_SP_PASSWORD }}
+
+      # 5️⃣ Build and Push Docker image to ACR
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/GithubCI.WebApi
+          file: ./src/GithubCI.WebApi/Dockerfile
+          push: true
+          tags: myregistryaabuabdo.azurecr.io/myapp/my-image-name:latest

@@ -1,0 +1,80 @@
+name: build in acr and deply to aci
+
+on:
+  push:
+    branches: [ "main123" ]
+  pull_request:
+    branches: [ "main1234" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1️⃣ Checkout repository
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Login to Azure CLI
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 3️⃣ Create Azure Container Registry if not exists
+      - name: Create ACR
+        run: |
+          az acr show --name myregistryaabuabdo --resource-group az400 || \
+          az acr create --name myregistryaabuabdo --resource-group az400 --sku Basic --admin-enabled true
+
+      # 4️⃣ List files in project directory
+      - name: List project directory
+        run: ls -al ./src/GithubCI.WebApi
+
+      # 5️⃣ Build Docker image locally
+      - name: Build Docker image
+        run: docker build ./src/GithubCI.WebApi --file ./src/GithubCI.WebApi/Dockerfile --tag my-image-name:test
+
+      # 6️⃣ Login to Azure Container Registry
+      - name: Login to Azure Container Registry
+        run: az acr login --name myregistryaabuabdo
+
+      # 7️⃣ Build and Push Docker image to ACR
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/GithubCI.WebApi
+          file: ./src/GithubCI.WebApi/Dockerfile
+          push: true
+          tags: myregistryaabuabdo.azurecr.io/myapp/my-image-name:latest
+
+      # 8️⃣ Create Azure Container Instance
+            # 8️⃣ Create Azure Container Instance
+           # 8️⃣ Create Azure Container Instance
+      - name: Create Azure Container Instance
+        run: |
+          echo "Checking if container exists..."
+          if az container show --name myapp-container --resource-group az400 > /dev/null 2>&1; then
+            echo "Container already exists. Deleting old one..."
+            az container delete --name myapp-container --resource-group az400 --yes
+            echo "Creating new container..."
+          else
+            echo "Creating new container..."
+          fi
+
+          az container create \
+            --resource-group az400 \
+            --name myapp-container \
+            --image myregistryaabuabdo.azurecr.io/myapp/my-image-name:latest \
+            --registry-login-server myregistryaabuabdo.azurecr.io \
+            --registry-username $(az acr credential show --name myregistryaabuabdo --query "username" -o tsv) \
+            --registry-password $(az acr credential show --name myregistryaabuabdo --query "passwords[0].value" -o tsv) \
+            --dns-name-label myapp-aci-$(date +%s) \
+            --ports 8080 \
+            --os-type Linux \
+            --cpu 1 \
+            --memory 1.5 \
+            --environment-variables ASPNETCORE_ENVIRONMENT=Production
+
+          echo "✅ Container created successfully!"
+          echo "Fetching container FQDN..."
+          az container show --name myapp-container --resource-group az400 --query "ipAddress.fqdn" -o tsv
+
