@@ -1,38 +1,36 @@
-name: Deploy to Windows VM
+name: Build and Deploy .NET App to Self-Hosted Runner
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  deploy:
-    runs-on: windows-latest   # مهم: runner Windows
+  build:
+    runs-on: self-hosted  # 👈 يستخدم الـ VM الخاص بك
+
     steps:
-      # 1️⃣ سحب ملفات المستودع
-      - name: Checkout repository
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2️⃣ نشر الملفات على Windows VM باستخدام PowerShell Remoting
-      - name: Deploy via WinRM
-        shell: pwsh
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build the project
+        run: dotnet build --configuration Release
+
+      - name: Run unit tests
+        run: dotnet test --no-build
+
+      - name: Publish application
+        run: dotnet publish -c Release -o ./publish
+
+      - name: Deploy to IIS
         run: |
-          # تحويل كلمة المرور إلى SecureString
-          $password = ConvertTo-SecureString "${{ secrets.SERVER_PASSWORD }}" -AsPlainText -Force
-          $cred = New-Object System.Management.Automation.PSCredential ("${{ secrets.SERVER_USER }}", $password)
-
-          # تنفيذ العمليات على الـ VM
-          Invoke-Command -ComputerName ${{ secrets.SERVER_HOST }} -Credential $cred -ScriptBlock {
-              # 1️⃣ إنشاء مجلد إذا لم يكن موجود
-              $destination = "C:\AppFolder"
-              if (-not (Test-Path $destination)) {
-                  New-Item -ItemType Directory -Path $destination
-              }
-
-              # 2️⃣ نسخ كل الملفات من مجلد مؤقت على VM
-              $source = "C:\GitHubActions\*"
-              Copy-Item -Path $source -Destination $destination -Recurse -Force
-
-              # 3️⃣ مثال: تشغيل سكربت أو إعادة تشغيل خدمة
-              # Restart-Service MyService
-              Write-Host "Deployment complete!"
-          }
+          Import-Module WebAdministration
+          New-Item -Path "IIS:\Sites\MyApp" -physicalPath "C:\inetpub\wwwroot\MyApp" -bindings @{protocol="http";bindingInformation="*:8080:"}
+          Copy-Item -Path .\publish\* -Destination "C:\inetpub\wwwroot\MyApp" -Recurse -Force
