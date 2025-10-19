@@ -10,103 +10,112 @@ jobs:
     runs-on: self-hosted
     steps:
 
-      # 1️⃣ Checkout الكود من GitHub
+      # 1️⃣ Checkout الكود
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ تثبيت .NET SDK
+      # 2️⃣ Setup .NET
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      # 3️⃣ Restore dependencies
+      # 3️⃣ Restore
       - name: Restore dependencies
         run: dotnet restore
 
-      # 4️⃣ Build project
+      # 4️⃣ Build
       - name: Build project
         run: dotnet build --configuration Release --no-restore
 
-      # 5️⃣ Run unit tests
+      # 5️⃣ Test
       - name: Run tests
         run: dotnet test --no-build --verbosity normal
 
-      # 6️⃣ Publish application
+      # 6️⃣ Publish
       - name: Publish application
         run: dotnet publish -c Release -o ./publish
 
-      # 7️⃣ Deploy to IIS (مُصحح ✅)
+      # 7️⃣ Deploy to IIS - المُصحح 100%
       - name: Deploy to IIS
         shell: powershell
         run: |
           Import-Module WebAdministration
-
+          
           $siteName = "MyApp"
           $physicalPath = "C:\inetpub\wwwroot\MyApp"
           $appPoolName = "MyAppPool"
-
-          Write-Host "🚀 بدء النشر لـ $siteName" -ForegroundColor Green
-
-          # إنشاء المجلد إذا لم يكن موجود
+          
+          Write-Host "Starting deployment for $siteName" -ForegroundColor Green
+          
+          # Create folder if not exists
           if (-not (Test-Path $physicalPath)) {
               New-Item -Path $physicalPath -ItemType Directory -Force
-              Write-Host "📁 تم إنشاء المجلد: $physicalPath" -ForegroundColor Yellow
+              Write-Host "Created folder: $physicalPath" -ForegroundColor Yellow
           }
-
-          # إنشاء App Pool إذا لم يكن موجود
+          
+          # Create App Pool if not exists
           if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
               New-Item IIS:\AppPools\$appPoolName
-              Write-Host "🐳 تم إنشاء App Pool: $appPoolName" -ForegroundColor Yellow
+              Write-Host "Created App Pool: $appPoolName" -ForegroundColor Yellow
           }
-
-          # إنشاء الموقع إذا لم يكن موجود
-          if (-not (Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName })) {
+          
+          # Create Site if not exists
+          $siteExists = Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName }
+          if (-not $siteExists) {
               New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
               Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPoolName
-              Write-Host "🌐 تم إنشاء الموقع: $siteName" -ForegroundColor Yellow
+              Write-Host "Created site: $siteName" -ForegroundColor Yellow
           }
-
-          # 🔧 إيقاف آمن مع فحص الحالة
-          Write-Host "⏹️ إيقاف الخدمات..." -ForegroundColor Cyan
           
-          # فحص وإيقاف App Pool
-          $appPool = Get-WebAppPoolState -Name $appPoolName
-          if ($appPool.Value -eq "Started") {
-              Stop-WebAppPool $appPoolName
-              Write-Host "✅ تم إيقاف App Pool: $appPoolName" -ForegroundColor Green
-          } else {
-              Write-Host "ℹ️ App Pool مُطفأ بالفعل: $appPoolName" -ForegroundColor Gray
+          # Safe Stop with State Check
+          Write-Host "Stopping services..." -ForegroundColor Cyan
+          
+          # App Pool
+          try {
+              $appPoolState = Get-WebAppPoolState -Name $appPoolName
+              if ($appPoolState.Value -eq "Started") {
+                  Stop-WebAppPool $appPoolName
+                  Write-Host "Stopped App Pool: $appPoolName" -ForegroundColor Green
+              } else {
+                  Write-Host "App Pool already stopped: $appPoolName" -ForegroundColor Gray
+              }
+          } catch {
+              Write-Host "App Pool not found or stopped: $appPoolName" -ForegroundColor Gray
           }
-
-          # فحص وإيقاف الموقع
-          $siteState = Get-WebsiteState -Name $siteName
-          if ($siteState.Value -eq "Started") {
-              Stop-Website $siteName
-              Write-Host "✅ تم إيقاف الموقع: $siteName" -ForegroundColor Green
-          } else {
-              Write-Host "ℹ️ الموقع مُطفأ بالفعل: $siteName" -ForegroundColor Gray
+          
+          # Website
+          try {
+              $siteState = Get-WebsiteState -Name $siteName
+              if ($siteState.Value -eq "Started") {
+                  Stop-Website $siteName
+                  Write-Host "Stopped site: $siteName" -ForegroundColor Green
+              } else {
+                  Write-Host "Site already stopped: $siteName" -ForegroundColor Gray
+              }
+          } catch {
+              Write-Host "Site not found or stopped: $siteName" -ForegroundColor Gray
           }
-
+          
           Start-Sleep -Seconds 3
-
-          # 📁 نسخ الملفات باستخدام Robocopy
-          Write-Host "📤 نسخ الملفات..." -ForegroundColor Cyan
+          
+          # Copy files with Robocopy
+          Write-Host "Copying files..." -ForegroundColor Cyan
           $robocopyResult = robocopy .\publish $physicalPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np
           if ($LASTEXITCODE -le 3) {
-              Write-Host "✅ تم نسخ الملفات بنجاح" -ForegroundColor Green
+              Write-Host "Files copied successfully" -ForegroundColor Green
           } else {
-              Write-Host "❌ خطأ في نسخ الملفات: $LASTEXITCODE" -ForegroundColor Red
+              Write-Host "Robocopy failed with exit code: $LASTEXITCODE" -ForegroundColor Red
               exit 1
           }
-
-          # ▶️ إعادة تشغيل آمن
-          Write-Host "▶️ إعادة تشغيل الخدمات..." -ForegroundColor Cyan
+          
+          # Safe Start
+          Write-Host "Starting services..." -ForegroundColor Cyan
           
           Start-WebAppPool $appPoolName
-          Write-Host "✅ تم تشغيل App Pool: $appPoolName" -ForegroundColor Green
+          Write-Host "Started App Pool: $appPoolName" -ForegroundColor Green
           
           Start-Website $siteName
-          Write-Host "✅ تم تشغيل الموقع: $siteName" -ForegroundColor Green
-
-          Write-Host "🎉 اكتمل النشر بنجاح! الموقع متاح على: http://localhost:8080" -ForegroundColor Green
+          Write-Host "Started site: $siteName" -ForegroundColor Green
+          
+          Write-Host "Deployment completed! Site available at: http://localhost:8080" -ForegroundColor Green
