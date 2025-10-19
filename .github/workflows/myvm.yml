@@ -1,36 +1,66 @@
-name: Build and Deploy .NET App to Self-Hosted Runner
+name: Build and Deploy .NET App to IIS
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]  # تشغيل عند أي دفع على الفرع الرئيسي
+  workflow_dispatch:    # يسمح بالتشغيل اليدوي من GitHub
 
 jobs:
-  build:
-    runs-on: self-hosted  # 👈 يستخدم الـ VM الخاص بك
-
+  build-and-deploy:
+    runs-on: self-hosted  # يستخدم الـ self-hosted runner الخاص بك
     steps:
-      - name: Checkout source code
+
+      # 1️⃣ Checkout الكود من GitHub
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup .NET SDK
+      # 2️⃣ تثبيت .NET SDK
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
+      # 3️⃣ Restore dependencies
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build the project
-        run: dotnet build --configuration Release
+      # 4️⃣ Build project
+      - name: Build project
+        run: dotnet build --configuration Release --no-restore
 
-      - name: Run unit tests
-        run: dotnet test --no-build
+      # 5️⃣ Run unit tests
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal
 
+      # 6️⃣ Publish application
       - name: Publish application
         run: dotnet publish -c Release -o ./publish
 
+      # 7️⃣ Deploy to IIS
       - name: Deploy to IIS
+        shell: pwsh
         run: |
+          # استدعاء WebAdministration Module
           Import-Module WebAdministration
-          New-Item -Path "IIS:\Sites\MyApp" -physicalPath "C:\inetpub\wwwroot\MyApp" -bindings @{protocol="http";bindingInformation="*:8080:"}
-          Copy-Item -Path .\publish\* -Destination "C:\inetpub\wwwroot\MyApp" -Recurse -Force
+
+          $siteName = "MyApp"
+          $physicalPath = "C:\inetpub\wwwroot\MyApp"
+
+          # إنشاء المجلد إذا لم يكن موجود
+          if (-not (Test-Path $physicalPath)) {
+              New-Item -Path $physicalPath -ItemType Directory
+          }
+
+          # إنشاء الموقع في IIS إذا لم يكن موجود
+          if (-not (Get-ChildItem IIS:\Sites | Where-Object { $_.Name -eq $siteName })) {
+              New-Item -Path "IIS:\Sites\$siteName" -physicalPath $physicalPath -bindings @{protocol="http";bindingInformation="*:8080:"}
+          }
+
+          # حذف أي ملفات قديمة
+          Remove-Item -Path "$physicalPath\*" -Recurse -Force
+
+          # نسخ الملفات الجديدة من مجلد publish
+          Copy-Item -Path .\publish\* -Destination $physicalPath -Recurse -Force
+
+          # إعادة تشغيل الموقع (اختياري لتحديث الملفات)
+          Restart-WebAppPool $siteName
